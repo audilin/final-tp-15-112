@@ -1,10 +1,11 @@
 #################################################
 # FINAL TPPPP!!!!
 #
-# Version 1:
-# What I've done: sidescroll, bat & spike class, jumping, pause
-# Next step: checking for when the player touches the spikes
-#               ^ or do a different type of terrain thats smoother?
+# Version 2:
+# What I've done: Change the spike class to draw trapezoids instead of triangles
+#                  ^ also made it so that the gap between
+#                      the top and bottom terrain is controlled
+# Next step: checking for when the player touches the "spikes"
 # 
 # Your name: Audi Lin
 # Your andrew id: audil
@@ -39,11 +40,12 @@ class Bat(object):
                         fill = "white")
         
 class Spike(object):
-    def __init__(self, app, x, height, pointingDown):
+    def __init__(self, app, x, lheight, rheight, pointingDown):
         self.app = app
         self.width = self.app.spikeWidth
         self.x = x
-        self.height = height
+        self.lheight = lheight
+        self.rheight = rheight
         self.pointingDown = pointingDown # bool
 
     def move(self, dx):  # idk if this is really necessary but oh well
@@ -54,24 +56,33 @@ class Spike(object):
         if self.pointingDown:
             canvas.create_polygon(self.x - halfWidth, 0,
                             self.x + halfWidth, 0,
-                            self.x, self.height,
+                            self.x + halfWidth, self.rheight,
+                            self.x - halfWidth, self.lheight,
                             fill = "red")
         else:
             canvas.create_polygon(self.x - halfWidth, self.app.height,
                             self.x + halfWidth, self.app.height,
-                            self.x, self.app.height - self.height,
+                            self.x + halfWidth, self.app.height - self.rheight,
+                            self.x - halfWidth, self.app.height - self.lheight,
                             fill = "red")
+        canvas.create_line(self.x - halfWidth, 0,
+                            self.x - halfWidth, self.app.height)
     
 def makeSpikes(app, n):
     spikes = []
+    oldHeights = 0, 0
     for i in range(n):
+        upperOldHeight, lowerOldHeight = oldHeights
         x = i * app.spikeWidth + app.width * 0.75
-        height = random.choice(range(70, 180, 5))
-        downSpike = Spike(app, x, height, True)
+        newHeight = random.choice(range(70, 180, 5))
+        downSpike = Spike(app, x, upperOldHeight, newHeight, True)
         spikes.append(downSpike)
-        height = random.choice(range(70, 180, 5))
-        upSpike = Spike(app, x, height, False)
+
+        gapheight = random.choice(range(80, 200, 5))
+        newLowerHeight = app.height - newHeight - gapheight
+        upSpike = Spike(app, x, lowerOldHeight, newLowerHeight, False)
         spikes.append(upSpike)
+        oldHeights = newHeight, newLowerHeight
     return spikes
 
 def keyPressed(app, event):
