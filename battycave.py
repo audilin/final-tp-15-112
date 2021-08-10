@@ -1,9 +1,9 @@
 #################################################
 # FINAL TPPPP!!!!
 #
-# Version 5:
-# What I've done: smoother jump with velocity and acceleration
-# Next step: continuous terrain generation
+# Version 6:
+# What I've done: continuous terrain generation and gradual speed change
+# Next step: smoother terrain(if possible), circle view dots
 # 
 # Your name: Audi Lin
 # Your andrew id: audil
@@ -20,12 +20,15 @@ def appStarted(app):
     app.player = Bat(app)
     app.gameOver = False
     app.spikeWidth = 20
+    app.spikeOffset = app.width * 0.7 # change spike offset instead of the individual spike x values
     app.minSpikeHeight = 20
     app.maxSpikeHeight = app.height * 0.6
-    app.spikeMargin = 30#10
-    app.spikes = makeSpikes(app, 100)
+    app.spikeMargin = 30
+    app.spikes = makeSpikes(app, 20, 0, app.height)
     app.paused = False
     app.speed = 5
+    app.timer = 0
+    app.spikeTimer = 0
 
 class Bat(object):
     def __init__(self, app):
@@ -42,10 +45,11 @@ class Bat(object):
                         fill = "black")
         
 class Spike(object):
-    def __init__(self, app, x, leftY, rightY, pointingDown):
+    def __init__(self, app, index, leftY, rightY, pointingDown):
         self.app = app
         self.width = self.app.spikeWidth
-        self.x = x
+        self.index = index
+        self.x = index * self.width + self.app.spikeOffset # dependent on index and offset
         self.color = "purple"
         self.leftY = leftY # left y-value
         self.rightY = rightY # right y-value
@@ -54,8 +58,8 @@ class Spike(object):
         self.intersectionX = 0
         self.pointingDown = pointingDown # bool
 
-    def move(self, dx):  # idk if this is really necessary but oh well
-        self.x += dx
+    def updateX(self):
+        self.x = self.index * self.width + self.app.spikeOffset
 
     def touching(self, player): # checks if the spike is touching the player
         halfWidth = self.width / 2
@@ -114,10 +118,12 @@ class Spike(object):
                             self.x + halfWidth, self.rightY,
                             self.x - halfWidth, self.leftY,
                             fill = self.color)
+        canvas.create_text(self.x, self.app.height / 2, text = f"{self.index}",
+                        fill = "white", anchor = "s")
 
-def makeSpikes(app, n): # returns a list of n up & n down Spike objects
+def makeSpikes(app, n, topStartY, bottomStartY, indexOffset = 0): # returns a list of n up & n down Spike objects
     spikes = []
-    oldYs = 0, app.height
+    oldYs = topStartY, bottomStartY
     generalDirection = 1
     for i in range(n):
         topOldY, bottomOldY = oldYs
@@ -140,11 +146,11 @@ def makeSpikes(app, n): # returns a list of n up & n down Spike objects
         else:
             bottomNewY = bottomOldY + generalDirection * random.choice(range(-10, 30))
         
-        if abs(topNewY - bottomNewY) < app.player.r * 3:
+        if abs(topNewY - bottomNewY) < app.player.r * 6:
             topNewY -= app.player.r * 2
             bottomNewY += app.player.r * 2
-        downSpike = Spike(app, x, topOldY, topNewY, True)
-        upSpike = Spike(app, x, bottomOldY, bottomNewY, False)
+        downSpike = Spike(app, i + indexOffset, topOldY, topNewY, True)
+        upSpike = Spike(app, i + indexOffset, bottomOldY, bottomNewY, False)
         spikes.append(downSpike)
         spikes.append(upSpike)
         oldYs = topNewY, bottomNewY
@@ -157,17 +163,21 @@ def keyPressed(app, event):
         app.player.yV = -7
     elif event.key == 'p':
         app.paused = not app.paused
+    elif event.key == "x":
+        print(app.timer / 1000)
     if app.paused:
         if event.key == "Up":
             app.player.y -= 5
         elif event.key == "Down":
             app.player.y += 5
         elif event.key == "Left":
+            app.spikeOffset += app.speed
             for spike in app.spikes:
-                spike.move(app.speed)
+                spike.updateX()
         elif event.key == "Right":
+            app.spikeOffset -= app.speed
             for spike in app.spikes:
-                spike.move(-1 * app.speed)
+                spike.updateX()
         
         for spike in app.spikes:
             if spike.touching(app.player):
@@ -179,15 +189,32 @@ def mousePressed(app, event):
 
 def timerFired(app):
     if not app.gameOver and not app.paused:
+        app.timer += app.timerDelay
+        app.spikeTimer += app.timerDelay
         app.player.y += app.player.yV
         app.player.yV += app.player.yA
-        
+
+        app.spikeOffset -= app.speed
         for spike in app.spikes:
             if spike.touching(app.player):
                 break
-            spike.move(-1 * app.speed)
+            spike.updateX()
         if app.player.y > app.height or app.player.y < 0:
             app.gameOver = True
+
+        x = (app.spikeWidth / app.speed) * app.timerDelay # amount of time it takes for 1 spike to pass
+        if app.spikeTimer > (20 * x):
+            app.spikeTimer -= (20 * x)
+            size = len(app.spikes)
+            lastTopSpike = app.spikes[size - 2]
+            lastBottomSpike = app.spikes[size - 1]
+            print(f"making {size // 2}+")
+
+            topStartY = lastTopSpike.rightY
+            bottomStartY = lastBottomSpike.rightY
+            indexOffset = size //  2
+            app.spikes += makeSpikes(app, 20, topStartY, bottomStartY, indexOffset)
+            app.speed += 1
 
 def drawSpikes(app, canvas):
     for spike in app.spikes:
@@ -213,6 +240,8 @@ def redrawAll(app, canvas):
     elif app.paused:
         canvas.create_text(app.width / 2, app.height / 2,
                             text = "PAUSED", fill = "white")
+    canvas.create_text(5, 5, text = f"{app.timer / 1000}", anchor = "nw",
+                        fill = "white")
 
 def playBatty():
     runApp(width = 600, height = 400)
