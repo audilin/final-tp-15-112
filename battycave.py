@@ -1,9 +1,10 @@
 #################################################
 # FINAL TPPPP!!!!
 #
-# Version 3:
-# What I've done: check for when the player touches the spikes
-# Next step: get rid of the bug that doesn't check in between the sections
+# Version 4:
+# What I've done: smoother terrain generation with general direction,
+#                   player circle view
+# Next step: more advanced circle with individual dots?
 # 
 # Your name: Audi Lin
 # Your andrew id: audil
@@ -19,7 +20,10 @@ from cmu_112_graphics import *
 def appStarted(app):
     app.player = Bat(app)
     app.gameOver = False
-    app.spikeWidth = app.width / 10 + 1
+    app.spikeWidth = 20
+    app.minSpikeHeight = 20
+    app.maxSpikeHeight = app.height * 0.6
+    app.spikeMargin = 30#10
     app.spikes = makeSpikes(app, 100)
     app.paused = False
 
@@ -36,14 +40,14 @@ class Bat(object):
     def draw(self, canvas):
         canvas.create_oval(self.x - self.r, self.y - self.r,
                         self.x + self.r, self.y + self.r,
-                        fill = "white")
+                        fill = "black")
         
 class Spike(object):
     def __init__(self, app, x, leftY, rightY, pointingDown):
         self.app = app
         self.width = self.app.spikeWidth
         self.x = x
-        self.color = "red"
+        self.color = "purple"
         self.leftY = leftY # left y-value
         self.rightY = rightY # right y-value
         self.slope = (self.rightY - self.leftY) / self.width
@@ -79,7 +83,7 @@ class Spike(object):
                     self.app.gameOver = True
             else:
                 self.intersectionX = 0
-                self.color = "red"
+                self.color = "purple"
 
         else: # check if intersects below
             leftside = player.y - (self.leftY - yOffset)
@@ -94,7 +98,7 @@ class Spike(object):
                     self.app.gameOver = True
             else:
                 self.intersectionX = 0
-                self.color = "red"
+                self.color = "purple"
         return False
 
     def draw(self, canvas):
@@ -104,28 +108,45 @@ class Spike(object):
                             self.x + halfWidth, 0,
                             self.x + halfWidth, self.rightY,
                             self.x - halfWidth, self.leftY,
-                            fill = self.color, width = 2, outline = "black")
+                            fill = self.color)
         else:
             canvas.create_polygon(self.x - halfWidth, self.app.height,
                             self.x + halfWidth, self.app.height,
                             self.x + halfWidth, self.rightY,
                             self.x - halfWidth, self.leftY,
-                            fill = self.color, width = 2, outline = "black")
+                            fill = self.color)
 
-        
 def makeSpikes(app, n): # returns a list of n up & n down Spike objects
     spikes = []
     oldYs = 0, app.height
+    generalDirection = 1
     for i in range(n):
         topOldY, bottomOldY = oldYs
         x = i * app.spikeWidth + app.width * 0.75
-        topNewY = random.choice(range(70, 180, 5))
-        downSpike = Spike(app, x, topOldY, topNewY, True)
-        spikes.append(downSpike)
+        if topOldY < app.minSpikeHeight + app.spikeMargin:
+            topNewY = topOldY + random.choice(range(20, 50))
+            generalDirection = 1
+        elif topOldY > app.maxSpikeHeight - app.spikeMargin:
+            topNewY = topOldY + random.choice(range(-50, -20))
+            generalDirection = -1
+        else:
+            topNewY = topOldY + generalDirection * random.choice(range(10, 30))
 
-        gapheight = random.choice(range(80, 200, 5))
-        bottomNewY = topNewY + gapheight
+        if bottomOldY > app.height - (app.minSpikeHeight + app.spikeMargin):
+            bottomNewY = bottomOldY + random.choice(range(-50, -20))
+            generalDirection = -1
+        elif bottomOldY < app.height - (app.maxSpikeHeight - app.spikeMargin):
+            bottomNewY = bottomOldY + random.choice(range(20, 50))
+            generalDirection = 1
+        else:
+            bottomNewY = bottomOldY + generalDirection * random.choice(range(-10, 30))
+        
+        if abs(topNewY - bottomNewY) < app.player.r * 3:
+            topNewY -= app.player.r * 2
+            bottomNewY += app.player.r * 2
+        downSpike = Spike(app, x, topOldY, topNewY, True)
         upSpike = Spike(app, x, bottomOldY, bottomNewY, False)
+        spikes.append(downSpike)
         spikes.append(upSpike)
         oldYs = topNewY, bottomNewY
     return spikes
@@ -178,7 +199,10 @@ def drawSpikes(app, canvas):
         spike.draw(canvas)
 
 def drawCircle(app, canvas):
-    pass
+    radius = app.player.r * 10
+    canvas.create_oval(app.player.x - radius, app.player.y - radius,
+                        app.player.x + radius, app.player.y + radius,
+                        fill = "grey")
 
 def drawPlayer(app, canvas):
     app.player.draw(canvas)
