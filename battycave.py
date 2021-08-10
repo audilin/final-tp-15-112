@@ -1,10 +1,9 @@
 #################################################
 # FINAL TPPPP!!!!
 #
-# Version 4:
-# What I've done: smoother terrain generation with general direction,
-#                   player circle view
-# Next step: more advanced circle with individual dots?
+# Version 5:
+# What I've done: smoother jump with velocity and acceleration
+# Next step: continuous terrain generation
 # 
 # Your name: Audi Lin
 # Your andrew id: audil
@@ -26,6 +25,7 @@ def appStarted(app):
     app.spikeMargin = 30#10
     app.spikes = makeSpikes(app, 100)
     app.paused = False
+    app.speed = 5
 
 class Bat(object):
     def __init__(self, app):
@@ -33,9 +33,8 @@ class Bat(object):
         self.x = app.width * 0.4
         self.y = app.height / 2
         self.r = 15
-        self.jumpHeight = app.height / 40
-        self.jumping = False
-        self.jumpingTimer = 0
+        self.yV = 0  # velocity
+        self.yA = 1  # acceleration
     
     def draw(self, canvas):
         canvas.create_oval(self.x - self.r, self.y - self.r,
@@ -155,21 +154,20 @@ def keyPressed(app, event):
     if event.key == 'r':
         appStarted(app)
     elif event.key == "Space":
-        app.player.jumping = True
-        app.player.jumpingTimer = 0
+        app.player.yV = -7
     elif event.key == 'p':
         app.paused = not app.paused
     if app.paused:
         if event.key == "Up":
-            app.player.y -= app.player.jumpHeight
+            app.player.y -= 5
         elif event.key == "Down":
-            app.player.y += app.player.jumpHeight
+            app.player.y += 5
         elif event.key == "Left":
             for spike in app.spikes:
-                spike.move(5)
+                spike.move(app.speed)
         elif event.key == "Right":
             for spike in app.spikes:
-                spike.move(-5)
+                spike.move(-1 * app.speed)
         
         for spike in app.spikes:
             if spike.touching(app.player):
@@ -181,18 +179,15 @@ def mousePressed(app, event):
 
 def timerFired(app):
     if not app.gameOver and not app.paused:
-        if app.player.jumping and app.player.jumpingTimer < 3:
-            app.player.y -= app.player.jumpHeight
-            app.player.jumpingTimer += 1
-        else:
-            app.player.jumpingTimer = 0
-            app.player.jumping = False
-            app.player.y += 0.5 * app.player.jumpHeight
+        app.player.y += app.player.yV
+        app.player.yV += app.player.yA
         
         for spike in app.spikes:
             if spike.touching(app.player):
                 break
-            spike.move(-5)
+            spike.move(-1 * app.speed)
+        if app.player.y > app.height or app.player.y < 0:
+            app.gameOver = True
 
 def drawSpikes(app, canvas):
     for spike in app.spikes:
