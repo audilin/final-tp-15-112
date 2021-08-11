@@ -1,34 +1,71 @@
 #################################################
 # FINAL TPPPP!!!!
 #
-# Version 6:
-# What I've done: continuous terrain generation and gradual speed change
-# Next step: smoother terrain(if possible), circle view dots
+# Version 7:
+# What I've done: making things prettier with different screens/colors
+# Next step: circle view dots, fix checking mechanism edge case
 # 
 # Your name: Audi Lin
 # Your andrew id: audil
 #################################################
 
-import math, copy, random, time
+import math, copy, random, time, decimal
 
 # from the cmu 15-112 class notes
 from cmu_112_graphics import *
 
 #################################################
+# adapted from CMU 15-112 course notes: https://www.cs.cmu.edu/~112/notes/notes-graphics.html#customColors
+def rgbString(rgb):
+    r, g, b = rgb
+    return f'#{r:02x}{g:02x}{b:02x}'
+
+# from CMU 15-112 course
+def roundHalfUp(d):  # helper-fn
+    # Round to nearest with ties going away from zero.
+    rounding = decimal.ROUND_HALF_UP
+    # See other rounding options here:
+    # https://docs.python.org/3/library/decimal.html#rounding-modes
+    return int(decimal.Decimal(d).to_integral_value(rounding=rounding))
+
+# adapted from my solution hw1 question 10: https://www.cs.cmu.edu/~112/notes/hw1.html 
+def colorBlender(rgb1, rgb2, midpoints):
+    r1, g1, b1 = rgb1
+    r2, g2, b2 = rgb2
+    colors = []
+    
+    rinc = (r2 - r1) / (midpoints + 1)  # increment of change for red
+    ginc = (g2 - g1) / (midpoints + 1)  # increment of change for green
+    binc = (b2 - b1) / (midpoints + 1)  # increment of change for blue
+    for n in range(midpoints + 2):
+        rn = roundHalfUp(r1 + n * rinc)
+        gn = roundHalfUp(g1 + n * ginc)
+        bn = roundHalfUp(b1 + n * binc)
+        rgbn = (rn, gn, bn)
+        colors.append(rgbString(rgbn))  
+    print(rgbn)
+    return colors
 
 def appStarted(app):
     app.player = Bat(app)
+    color = (181, 51, 184)
+    app.mainColor = rgbString(color)
+    app.backgroundColors = colorBlender((0, 0, 0), color, 50)
+    print(app.backgroundColors)
+    app.backgroundColorIndex = 0
     app.gameOver = False
     app.spikeWidth = 20
     app.spikeOffset = app.width * 0.7 # change spike offset instead of the individual spike x values
     app.minSpikeHeight = 20
     app.maxSpikeHeight = app.height * 0.6
     app.spikeMargin = 30
-    app.spikes = makeSpikes(app, 20, 0, app.height)
+    app.spikes = makeSpikes(app, 30, 0, app.height)
     app.paused = False
     app.speed = 5
     app.timer = 0
     app.spikeTimer = 0
+
+    app.screen = "startScreen"
 
 class Bat(object):
     def __init__(self, app):
@@ -50,7 +87,7 @@ class Spike(object):
         self.width = self.app.spikeWidth
         self.index = index
         self.x = index * self.width + self.app.spikeOffset # dependent on index and offset
-        self.color = "purple"
+        self.color = app.mainColor
         self.leftY = leftY # left y-value
         self.rightY = rightY # right y-value
         self.slope = (self.rightY - self.leftY) / self.width
@@ -82,11 +119,12 @@ class Spike(object):
                 else:
                     self.intersectionX = player.x - player.r * math.cos(self.alpha)
                 if self.x - halfWidth <= self.intersectionX <= self.x + halfWidth:
-                    self.color = "white"
+                    self.color = "red"
                     self.app.gameOver = True
+                    self.app.backgroundColorIndex = 0
             else:
                 self.intersectionX = 0
-                self.color = "purple"
+                self.color = self.app.mainColor
 
         else: # check if intersects below
             leftside = player.y - (self.leftY - yOffset)
@@ -97,11 +135,12 @@ class Spike(object):
                 else:
                     self.intersectionX = player.x + player.r * math.cos(self.alpha)
                 if self.x - halfWidth <= self.intersectionX <= self.x + halfWidth:
-                    self.color = "white"
+                    self.color = "red"
                     self.app.gameOver = True
+                    self.app.backgroundColorIndex = 0
             else:
                 self.intersectionX = 0
-                self.color = "purple"
+                self.color = self.app.mainColor
         return False
 
     def draw(self, canvas):
@@ -111,15 +150,15 @@ class Spike(object):
                             self.x + halfWidth, 0,
                             self.x + halfWidth, self.rightY,
                             self.x - halfWidth, self.leftY,
-                            fill = self.color)
+                            fill = self.color, outline = "black")
         else:
             canvas.create_polygon(self.x - halfWidth, self.app.height,
                             self.x + halfWidth, self.app.height,
                             self.x + halfWidth, self.rightY,
                             self.x - halfWidth, self.leftY,
                             fill = self.color)
-        canvas.create_text(self.x, self.app.height / 2, text = f"{self.index}",
-                        fill = "white", anchor = "s")
+        # canvas.create_text(self.x, self.app.height / 2, text = f"{self.index}",
+        #                 fill = "white", anchor = "s")
 
 def makeSpikes(app, n, topStartY, bottomStartY, indexOffset = 0): # returns a list of n up & n down Spike objects
     spikes = []
@@ -159,8 +198,10 @@ def makeSpikes(app, n, topStartY, bottomStartY, indexOffset = 0): # returns a li
 def keyPressed(app, event):
     if event.key == 'r':
         appStarted(app)
+        app.screen = "gameScreen"
     elif event.key == "Space":
-        app.player.yV = -7
+        app.screen = "gameScreen"
+        app.player.yV = -6
     elif event.key == 'p':
         app.paused = not app.paused
     elif event.key == "x":
@@ -188,33 +229,34 @@ def mousePressed(app, event):
     pass
 
 def timerFired(app):
-    if not app.gameOver and not app.paused:
+    if not app.gameOver and not app.paused and app.screen == "gameScreen":
         app.timer += app.timerDelay
         app.spikeTimer += app.timerDelay
         app.player.y += app.player.yV
         app.player.yV += app.player.yA
+        if app.backgroundColorIndex < len(app.backgroundColors) - 1:
+            app.backgroundColorIndex += 1
 
         app.spikeOffset -= app.speed
-        for spike in app.spikes:
-            if spike.touching(app.player):
-                break
-            spike.updateX()
-        if app.player.y > app.height or app.player.y < 0:
-            app.gameOver = True
+    for spike in app.spikes:
+        if spike.touching(app.player):
+            break
+        spike.updateX()
+    if app.player.y > app.height or app.player.y < 0:
+        app.gameOver = True
 
-        x = (app.spikeWidth / app.speed) * app.timerDelay # amount of time it takes for 1 spike to pass
-        if app.spikeTimer > (20 * x):
-            app.spikeTimer -= (20 * x)
-            size = len(app.spikes)
-            lastTopSpike = app.spikes[size - 2]
-            lastBottomSpike = app.spikes[size - 1]
-            print(f"making {size // 2}+")
+    x = (app.spikeWidth / app.speed) * app.timerDelay # amount of time it takes for 1 spike to pass
+    if app.spikeTimer > (30 * x):
+        app.spikeTimer -= (30 * x)
+        size = len(app.spikes)
+        lastTopSpike = app.spikes[size - 2]
+        lastBottomSpike = app.spikes[size - 1]
 
-            topStartY = lastTopSpike.rightY
-            bottomStartY = lastBottomSpike.rightY
-            indexOffset = size //  2
-            app.spikes += makeSpikes(app, 20, topStartY, bottomStartY, indexOffset)
-            app.speed += 1
+        topStartY = lastTopSpike.rightY
+        bottomStartY = lastBottomSpike.rightY
+        indexOffset = size //  2
+        app.spikes += makeSpikes(app, 30, topStartY, bottomStartY, indexOffset)
+        app.speed += 1
 
 def drawSpikes(app, canvas):
     for spike in app.spikes:
@@ -224,13 +266,19 @@ def drawCircle(app, canvas):
     radius = app.player.r * 10
     canvas.create_oval(app.player.x - radius, app.player.y - radius,
                         app.player.x + radius, app.player.y + radius,
-                        fill = "grey")
+                        fill = "white", width = 0)
 
 def drawPlayer(app, canvas):
     app.player.draw(canvas)
 
-def redrawAll(app, canvas):
-    canvas.create_rectangle(0, 0, app.width, app.height, fill = "purple")
+def drawStartScreen(app, canvas):
+    canvas.create_rectangle(0, 0, app.width, app.height, fill = "blue")
+    canvas.create_text(app.width / 2, app.height / 2,
+                            text = "Press 'SPACE' to start", fill = "white",
+                            font = "Arial 24")
+
+def drawGameScreen(app, canvas):
+    canvas.create_rectangle(0, 0, app.width, app.height, fill = app.backgroundColors[app.backgroundColorIndex])
     drawCircle(app, canvas)
     drawSpikes(app, canvas)
     drawPlayer(app, canvas)
@@ -242,6 +290,14 @@ def redrawAll(app, canvas):
                             text = "PAUSED", fill = "white")
     canvas.create_text(5, 5, text = f"{app.timer / 1000}", anchor = "nw",
                         fill = "white")
+
+def redrawAll(app, canvas):
+    if app.screen == "startScreen":
+        drawStartScreen(app, canvas)
+    elif app.screen == "gameScreen":
+        drawGameScreen(app, canvas)
+    else:
+        print(app.screen, "error!")
 
 def playBatty():
     runApp(width = 600, height = 400)
