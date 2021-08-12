@@ -1,9 +1,9 @@
 #################################################
 # FINAL TPPPP!!!!
 #
-# Version 9:
-# What I've done: adjusts depending on app.width and app.height
-# Next step: sprite instead of just a dot, circle view dots
+# Version 10:
+# What I've done: changing sprite instead of a dot
+# Next step: circle view dots
 # 
 # Your name: Audi Lin
 # Your andrew id: audil
@@ -77,19 +77,21 @@ class Player(object):
         self.yA = app.height / 400  # acceleration
 
         # adapted from 15-112 course notes: https://www.cs.cmu.edu/~112/notes/notes-animations-part4.html
-        # self.spriteIndex = 0
-        # spritestrip = app.loadImage('batspritesheet.png')
-        # self.sprites = [ ]
-        # for i in range(2):
-        #     sprite = spritestrip.crop((400*i, 0, 400*(i+ 1), 400))
-        #     self.sprites.append(sprite)
+        self.spriteIndex = 0
+        spritestrip = app.loadImage('batspritesheet.png')
+        spritestrip = app.scaleImage(spritestrip, 1/12)
+        self.sprites = [ ]
+        imageWidth, imageHeight = spritestrip.size
+        for i in range(2):
+            sprite = spritestrip.crop(((imageWidth / 2)*i, 0, (imageWidth / 2)*(i+ 1), imageHeight))
+            self.sprites.append(sprite)
     
     def draw(self, canvas):
         canvas.create_oval(self.x - self.r, self.y - self.r,
                         self.x + self.r, self.y + self.r,
                         fill = "green")
-        # sprite = app.sprites[app.spriteIndex]
-        # canvas.create_image(self.x, self.y, image=ImageTk.PhotoImage(sprite))
+        sprite = self.sprites[self.spriteIndex]
+        canvas.create_image(self.x, self.y, image=ImageTk.PhotoImage(sprite))
         
 class Spike(object):
     def __init__(self, app, index, leftY, rightY, pointingDown):
@@ -239,6 +241,11 @@ def timerFired(app):
         app.spikeTimer += app.timerDelay
         app.player.y += app.player.yV
         app.player.yV += app.player.yA
+        if app.player.yV > -1: # going down
+            app.player.spriteIndex = 0
+        else: # going up
+            app.player.spriteIndex = 1
+
         if app.backgroundColorIndex < len(app.backgroundColors) - 1:
             app.backgroundColorIndex += 1
 
@@ -305,7 +312,7 @@ def redrawAll(app, canvas):
         print(app.screen, "error!")
 
 def playBatty():
-    runApp(width = 1200, height = 800)
+    runApp(width = 600, height = 400)
 
 def main():
     playBatty()
