@@ -1,9 +1,9 @@
 #################################################
 # FINAL TPPPP!!!!
 #
-# Version 10:
-# What I've done: changing sprite instead of a dot
-# Next step: circle view dots
+# Version 11:
+# What I've done: polishing up messages on the screen, and adding more screens with buttons
+# Next step: add material for screens, circle view dots
 # 
 # Your name: Audi Lin
 # Your andrew id: audil
@@ -49,7 +49,7 @@ def colorBlender(rgb1, rgb2, midpoints):
     return colors
 
 def appStarted(app):
-    app.player = Player(app)
+    app.player = Player(app, app.height / 20)
     color = (181, 51, 184)
     app.mainColor = "black"
     app.backgroundColors = colorBlender(color, (0, 0, 0), 50)
@@ -64,22 +64,76 @@ def appStarted(app):
     app.paused = False
     app.speed = app.width // 120 # 5
     app.timer = 0
+    app.bestScore = 0
     app.spikeTimer = 0
-    app.screen = "startScreen"
+    app.screen = "homeScreen"
+    app.message = ""
+    app.buttons = [Button(app, "INSTRUCTIONS(i)", "instructionScreen", 0),
+                    Button(app, "BEST SCORES(s)", "scoredScreen", 1),
+                    Button(app, "ABOUT(a)", "aboutScreen", 2)]
+    
+    app.homeScreenBat = Player(app, app.height / 5)
+    app.homeScreenBat.x = app.width / 2
+    app.homeScreenBat.y = app.height * 0.35
+    app.homeScreenBat.color = None
+    app.homeScreenTimer = 0
+
+def resetScreen(app):
+    app.player = Player(app, app.height / 20)
+    app.gameOver = False
+    app.backgroundColorIndex = 0
+    app.spikeWidth = app.width / 30
+    app.spikeOffset = app.width * 0.7 # change spike offset instead of the individual spike x values
+    app.minSpikeHeight = app.height / 20
+    app.maxSpikeHeight = app.height * 0.6
+    app.spikeMargin = app.height / 13
+    app.spikes = makeSpikes(app, 30, 0, app.height)
+    app.paused = False
+    app.speed = app.width // 120 # 5
+    app.timer = 0
+    app.spikeTimer = 0
+    app.buttons = [Button(app, "INSTRUCTIONS(i)", "instructionScreen", 0),
+                    Button(app, "BEST SCORES(s)", "scoreScreen", 1),
+                    Button(app, "ABOUT(a)", "aboutScreen", 2)]
+
+def sizeChanged(app):
+    resetScreen(app)
+    app.screen = "homeScreen"
+
+class Button(object):
+    def __init__(self, app, displayText, screen, index):
+        self.app = app
+        self.displayText = displayText
+        self.screen = screen
+        self.index = index
+        self.y = app.height * 0.55 + index * (app.height / 7) # top of box
+        self.height = app.height / 10
+    
+    def checkClicked(self, x, y):
+        x0, y0, x1, y1 = self.app.width * 0.3, self.y, self.app.width * 0.7, self.y + self.height
+        if x >= x0 and x <= x1 and y >= y0 and y <= y1:
+            self.app.screen = self.screen
+
+    def draw(self, canvas):
+        canvas.create_rectangle(self.app.width * 0.3, self.y, self.app.width * 0.7, self.y + self.height,
+                            fill = "white")
+        canvas.create_text(self.app.width / 2, self.y + self.height, text = self.displayText, anchor = 's',
+                        font = f"Arial {self.app.height // 20}")
 
 class Player(object):
-    def __init__(self, app):
+    def __init__(self, app, r):
         self.app = app
         self.x = app.width * 0.4
         self.y = app.height / 2
-        self.r = app.height / 20 # 15 before
+        self.r = r # 15 before
         self.yV = 0  # velocity
         self.yA = app.height / 400  # acceleration
+        self.color = "hot pink"
 
         # adapted from 15-112 course notes: https://www.cs.cmu.edu/~112/notes/notes-animations-part4.html
         self.spriteIndex = 0
         spritestrip = app.loadImage('batspritesheet.png')
-        spritestrip = app.scaleImage(spritestrip, 1/12)
+        spritestrip = app.scaleImage(spritestrip, self.r / 200)
         self.sprites = [ ]
         imageWidth, imageHeight = spritestrip.size
         for i in range(2):
@@ -89,7 +143,7 @@ class Player(object):
     def draw(self, canvas):
         canvas.create_oval(self.x - self.r, self.y - self.r,
                         self.x + self.r, self.y + self.r,
-                        fill = "green")
+                        fill = self.color, width = 0)
         sprite = self.sprites[self.spriteIndex]
         canvas.create_image(self.x, self.y, image=ImageTk.PhotoImage(sprite))
         
@@ -202,73 +256,105 @@ def makeSpikes(app, n, topStartY, bottomStartY, indexOffset = 0): # returns a li
     return spikes
 
 def keyPressed(app, event):
-    if event.key == 'r':
-        appStarted(app)
-        app.screen = "gameScreen"
-    elif event.key == "Space":
+    if event.key == "Space":
         app.screen = "gameScreen"
         app.player.yV = -1 * app.height // 70 # 6
-    elif event.key == 'p':
-        app.paused = not app.paused
-    elif event.key == "x":
-        for spike in app.spikes:
-            if spike.pointingDown:
-                print(spike.index, spike.slope, spike.cosalpha)
-    if app.paused:
-        if event.key == "Up":
-            app.player.y -= 1
-        elif event.key == "Down":
-            app.player.y += 1
-        elif event.key == "Left":
-            app.spikeOffset += app.speed
+    elif event.key == "h":
+        resetScreen(app)
+        app.screen = "homeScreen"
+    elif event.key == "i":
+        resetScreen(app)
+        app.screen = "instructionScreen"
+    elif event.key == "s":
+        resetScreen(app)
+        app.screen = "scoreScreen"
+    elif event.key == "a":
+        resetScreen(app)
+        app.screen = "aboutScreen"
+    
+    if app.screen == "gameScreen":
+        if event.key == 'r':
+            resetScreen(app)
+            app.screen = "gameScreen"
+        elif event.key == 'p':
+            app.paused = not app.paused
+        elif event.key == "x":
             for spike in app.spikes:
-                spike.updateX()
-        elif event.key == "Right":
-            app.spikeOffset -= app.speed
+                if spike.pointingDown:
+                    print(spike.index, spike.slope, spike.cosalpha)
+        if app.paused:
+            if event.key == "Up":
+                app.player.y -= 1
+            elif event.key == "Down":
+                app.player.y += 1
+            elif event.key == "Left":
+                app.spikeOffset += app.speed
+                for spike in app.spikes:
+                    spike.updateX()
+            elif event.key == "Right":
+                app.spikeOffset -= app.speed
+                for spike in app.spikes:
+                    spike.updateX()
+            
             for spike in app.spikes:
-                spike.updateX()
-        
-        for spike in app.spikes:
-            spike.touching(app.player)
+                spike.touching(app.player)
     pass
 
 def mousePressed(app, event):
-    pass
+    if app.screen == "homeScreen":
+        for button in app.buttons:
+            button.checkClicked(event.x, event.y)
+    elif app.screen == "gameScreen":
+        app.player.yV = -1 * app.height // 70 # go up
 
 def timerFired(app):
-    if not app.gameOver and not app.paused and app.screen == "gameScreen":
-        app.timer += app.timerDelay
-        app.spikeTimer += app.timerDelay
-        app.player.y += app.player.yV
-        app.player.yV += app.player.yA
-        if app.player.yV > -1: # going down
-            app.player.spriteIndex = 0
-        else: # going up
-            app.player.spriteIndex = 1
+    if app.screen == "homeScreen":
+        app.homeScreenTimer += app.timerDelay
+        while app.homeScreenTimer > 500:
+            app.homeScreenBat.spriteIndex = (app.homeScreenBat.spriteIndex + 1) % 2
+            app.homeScreenTimer -= 500
+    
+    elif app.screen == "gameScreen":
+        if not app.gameOver and not app.paused:
+            app.timer += app.timerDelay
+            app.spikeTimer += app.timerDelay
+            app.player.y += app.player.yV
+            app.player.yV += app.player.yA
+            if app.player.yV > -1: # going down
+                app.player.spriteIndex = 0
+            else: # going up
+                app.player.spriteIndex = 1
 
-        if app.backgroundColorIndex < len(app.backgroundColors) - 1:
-            app.backgroundColorIndex += 1
+            if app.backgroundColorIndex < len(app.backgroundColors) - 1:
+                app.backgroundColorIndex += 1
 
-        app.spikeOffset -= app.speed
-        for spike in app.spikes:
-            if spike.touching(app.player):
-                break
-            spike.updateX()
-    if app.player.y > app.height or app.player.y < 0:
-        app.gameOver = True
+            app.spikeOffset -= app.speed
+            for spike in app.spikes:
+                if spike.touching(app.player):
+                    break
+                spike.updateX()
+        if app.player.y + app.player.r > app.height or app.player.y - app.player.r < 0:
+            app.gameOver = True
 
-    x = (app.spikeWidth / app.speed) * app.timerDelay # amount of time it takes for 1 spike to pass
-    if app.spikeTimer > (15 * x):
-        app.spikeTimer -= (30 * x)
-        size = len(app.spikes)
-        lastTopSpike = app.spikes[size - 2]
-        lastBottomSpike = app.spikes[size - 1]
+        x = (app.spikeWidth / app.speed) * app.timerDelay # amount of time it takes for 1 spike to pass
+        if app.spikeTimer > (15 * x):
+            app.spikeTimer -= (30 * x)
+            size = len(app.spikes)
+            lastTopSpike = app.spikes[size - 2]
+            lastBottomSpike = app.spikes[size - 1]
 
-        topStartY = lastTopSpike.rightY
-        bottomStartY = lastBottomSpike.rightY
-        indexOffset = size //  2
-        app.spikes += makeSpikes(app, 30, topStartY, bottomStartY, indexOffset)
-        app.speed += 1
+            topStartY = lastTopSpike.rightY
+            bottomStartY = lastBottomSpike.rightY
+            indexOffset = size //  2
+            app.spikes += makeSpikes(app, 30, topStartY, bottomStartY, indexOffset)
+            app.speed += 1
+
+        if app.gameOver:
+            app.message = f"         Game Over!\n You lasted {app.timer / 1000} seconds\n     Press (r) to restart\nOr press (h) to return to\n      the home screen"
+        elif app.paused:
+            app.message = "PAUSED"
+        else:
+            app.message = ""
 
 def drawSpikes(app, canvas):
     for spike in app.spikes:
@@ -283,31 +369,65 @@ def drawCircle(app, canvas):
 def drawPlayer(app, canvas):
     app.player.draw(canvas)
 
-def drawStartScreen(app, canvas):
-    canvas.create_rectangle(0, 0, app.width, app.height, fill = "blue")
+def drawMessageAndTimer(app, canvas):
+    canvas.create_text(5, 5, text = f"{app.timer / 1000}", anchor = "nw",
+                        fill = "white")
+    if app.message == "":
+        return False
+    textId = canvas.create_text(app.width / 2, app.height / 2,
+                        text = app.message,
+                        fill = "hot pink", anchor = "s", font = f"Arial {app.height // 30}")
+    x0, y0, x1, y1 = canvas.bbox(textId)
+    canvas.create_rectangle(x0 - 5, y0 - 5, x1 + 5, y1 + 5, outline = "hot pink", fill = "black", width = 3)
     canvas.create_text(app.width / 2, app.height / 2,
-                            text = "Press 'SPACE' to start", fill = "white",
-                            font = "Arial 24")
+                        text = app.message,
+                        fill = "white", anchor = "s", font = f"Arial {app.height // 30}")
+
+def drawHomeScreen(app, canvas):
+    canvas.create_rectangle(0, 0, app.width, app.height, fill = "black")
+    textId = canvas.create_text(app.width / 2, 20,
+                            text = "HOME SCREEN(h)", fill = "white",
+                            font = "Arial 24 bold", anchor = "n")
+    x0, y0, x1, y1 = canvas.bbox(textId)
+    canvas.create_rectangle(x0 - 5, y0 - 5, x1 + 5, y1 + 5, outline = "hot pink", fill = "black", width = 3)
+    canvas.create_text(app.width / 2, 20,
+                            text = "HOME SCREEN(h)", fill = "white",
+                            font = "Arial 24 bold", anchor = "n")
+    
+    app.homeScreenBat.draw(canvas)
+    canvas.create_text(app.width / 2, app.height * 0.55,
+                            text = "press (SPACE) to play", fill = "white",
+                            font = "Arial 18", anchor = "s")
+    for button in app.buttons:
+        button.draw(canvas)
 
 def drawGameScreen(app, canvas):
     canvas.create_rectangle(0, 0, app.width, app.height, fill = app.backgroundColors[app.backgroundColorIndex])
     drawCircle(app, canvas)
     drawSpikes(app, canvas)
     drawPlayer(app, canvas)
-    if app.gameOver:
-        canvas.create_text(app.width / 2, app.height / 2,
-                            text = "GAME OVER", fill = "white")
-    elif app.paused:
-        canvas.create_text(app.width / 2, app.height / 2,
-                            text = "PAUSED", fill = "white")
-    canvas.create_text(5, 5, text = f"{app.timer / 1000}", anchor = "nw",
-                        fill = "white")
+    drawMessageAndTimer(app, canvas)
+
+def drawInstructionScreen(app, canvas):
+    canvas.create_rectangle(0, 0, app.width, app.height, fill = "lime green")
+
+def drawScoreScreen(app, canvas):
+    canvas.create_rectangle(0, 0, app.width, app.height, fill = "skyblue")
+
+def drawAboutScreen(app, canvas):
+    canvas.create_rectangle(0, 0, app.width, app.height, fill = "hot pink")
 
 def redrawAll(app, canvas):
-    if app.screen == "startScreen":
-        drawStartScreen(app, canvas)
+    if app.screen == "homeScreen":
+        drawHomeScreen(app, canvas)
     elif app.screen == "gameScreen":
         drawGameScreen(app, canvas)
+    elif app.screen == "instructionScreen":
+        drawInstructionScreen(app, canvas)
+    elif app.screen == "scoreScreen":
+        drawScoreScreen(app, canvas)
+    elif app.screen == "aboutScreen":
+        drawAboutScreen(app, canvas)
     else:
         print(app.screen, "error!")
 
