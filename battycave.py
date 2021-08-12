@@ -1,9 +1,9 @@
 #################################################
 # FINAL TPPPP!!!!
 #
-# Version 8:
-# What I've done: fix checking mechanism bug, terrain is generated off screen
-# Next step: circle view dots
+# Version 9:
+# What I've done: adjusts depending on app.width and app.height
+# Next step: sprite instead of just a dot, circle view dots
 # 
 # Your name: Audi Lin
 # Your andrew id: audil
@@ -55,17 +55,16 @@ def appStarted(app):
     app.backgroundColors = colorBlender(color, (0, 0, 0), 50)
     app.backgroundColorIndex = 0
     app.gameOver = False
-    app.spikeWidth = 20
+    app.spikeWidth = app.width / 30
     app.spikeOffset = app.width * 0.7 # change spike offset instead of the individual spike x values
-    app.minSpikeHeight = 20
+    app.minSpikeHeight = app.height / 20
     app.maxSpikeHeight = app.height * 0.6
-    app.spikeMargin = 30
+    app.spikeMargin = app.height / 13
     app.spikes = makeSpikes(app, 30, 0, app.height)
     app.paused = False
-    app.speed = 5
+    app.speed = app.width // 120 # 5
     app.timer = 0
     app.spikeTimer = 0
-
     app.screen = "startScreen"
 
 class Player(object):
@@ -73,14 +72,24 @@ class Player(object):
         self.app = app
         self.x = app.width * 0.4
         self.y = app.height / 2
-        self.r = 15
+        self.r = app.height / 20 # 15 before
         self.yV = 0  # velocity
-        self.yA = 1  # acceleration
+        self.yA = app.height / 400  # acceleration
+
+        # adapted from 15-112 course notes: https://www.cs.cmu.edu/~112/notes/notes-animations-part4.html
+        # self.spriteIndex = 0
+        # spritestrip = app.loadImage('batspritesheet.png')
+        # self.sprites = [ ]
+        # for i in range(2):
+        #     sprite = spritestrip.crop((400*i, 0, 400*(i+ 1), 400))
+        #     self.sprites.append(sprite)
     
     def draw(self, canvas):
         canvas.create_oval(self.x - self.r, self.y - self.r,
                         self.x + self.r, self.y + self.r,
                         fill = "green")
+        # sprite = app.sprites[app.spriteIndex]
+        # canvas.create_image(self.x, self.y, image=ImageTk.PhotoImage(sprite))
         
 class Spike(object):
     def __init__(self, app, index, leftY, rightY, pointingDown):
@@ -158,28 +167,31 @@ def makeSpikes(app, n, topStartY, bottomStartY, indexOffset = 0): # returns a li
     generalDirection = 1
     for i in range(n):
         topOldY, bottomOldY = oldYs
-        x = i * app.spikeWidth + app.width * 0.75
+        minInc = app.height // 20 # 20
+        maxInc = app.height // 8 # 50
+        smallerMinInc = app.height // 40 # 10
+        smallerMaxInc = app.height // 13 # 30
         if topOldY < app.minSpikeHeight + app.spikeMargin:
-            topNewY = topOldY + random.choice(range(20, 50))
+            topNewY = topOldY + random.choice(range(minInc, maxInc))
             generalDirection = 1
         elif topOldY > app.maxSpikeHeight - app.spikeMargin:
-            topNewY = topOldY + random.choice(range(-50, -20))
+            topNewY = topOldY + random.choice(range(-1 * maxInc, -1 * minInc))
             generalDirection = -1
         else:
-            topNewY = topOldY + generalDirection * random.choice(range(10, 30))
+            topNewY = topOldY + generalDirection * random.choice(range(-1 * smallerMinInc, smallerMaxInc))
 
         if bottomOldY > app.height - (app.minSpikeHeight + app.spikeMargin):
-            bottomNewY = bottomOldY + random.choice(range(-50, -20))
+            bottomNewY = bottomOldY + random.choice(range(-1 * maxInc, -1 * minInc))
             generalDirection = -1
         elif bottomOldY < app.height - (app.maxSpikeHeight - app.spikeMargin):
-            bottomNewY = bottomOldY + random.choice(range(20, 50))
+            bottomNewY = bottomOldY + random.choice(range(minInc, maxInc))
             generalDirection = 1
         else:
-            bottomNewY = bottomOldY + generalDirection * random.choice(range(-10, 30))
+            bottomNewY = bottomOldY + generalDirection * random.choice(range(-1 * smallerMinInc, smallerMaxInc))
         
-        if abs(topNewY - bottomNewY) < app.player.r * 6:
-            topNewY -= app.player.r * 2
-            bottomNewY += app.player.r * 2
+        if abs(topNewY - bottomNewY) < app.player.r * 5:
+            topNewY -= app.player.r * 0.5
+            bottomNewY += app.player.r * 1.5
         downSpike = Spike(app, i + indexOffset, topOldY, topNewY, True)
         upSpike = Spike(app, i + indexOffset, bottomOldY, bottomNewY, False)
         spikes.append(downSpike)
@@ -193,7 +205,7 @@ def keyPressed(app, event):
         app.screen = "gameScreen"
     elif event.key == "Space":
         app.screen = "gameScreen"
-        app.player.yV = -6
+        app.player.yV = -1 * app.height // 70 # 6
     elif event.key == 'p':
         app.paused = not app.paused
     elif event.key == "x":
@@ -293,7 +305,7 @@ def redrawAll(app, canvas):
         print(app.screen, "error!")
 
 def playBatty():
-    runApp(width = 600, height = 400)
+    runApp(width = 1200, height = 800)
 
 def main():
     playBatty()
