@@ -23,7 +23,7 @@ def rgbString(rgb):
     r, g, b = rgb
     return f'#{r:02x}{g:02x}{b:02x}'
 
-# from CMU 15-112 course
+# from CMU 15-112 course: https://www.cs.cmu.edu/~112/notes/notes-variables-and-functions.html#RecommendedFunctions
 def roundHalfUp(d):  # helper-fn
     # Round to nearest with ties going away from zero.
     rounding = decimal.ROUND_HALF_UP
