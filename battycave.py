@@ -1,9 +1,9 @@
 #################################################
 # FINAL TPPPP!!!!
 #
-# Version 13:
-# What I've done: finish map saver and all screens
-# Next step: circle view dots, or extra powerups
+# Version 14:
+# What I've done: final touches
+# Next step(in the future if I have time): circle view dots, or powerups
 # 
 # Your name: Audi Lin
 # Your andrew id: audil
@@ -87,6 +87,7 @@ def appStarted(app):
         "Make it as far as you can and keep on trying!",
         "",
         "to start playing, press (SPACE)!",
+        "to pause while playing, press (p)",
         "to go back to the home screen, press (h)"
     ]
     app.savedMaps = {}
@@ -239,7 +240,6 @@ class Spike(object):
             self.color = "red"
             self.app.gameOver = True
             self.app.backgroundColorIndex = 0
-            # print(self.index, self.intersectionX - player.x)
         else:
             self.intersectionX = 0
             self.color = self.app.mainColor
@@ -321,7 +321,7 @@ def keyPressed(app, event):
             name = f"Map {len(app.savedMaps) + 1}"
             app.currentMap = name
             app.savedMaps[name] = [app.timer / 1000, app.spikes] # keeps track of score too
-            app.message = f"Map was saved as {name}"
+            app.message = f"Map was saved as {name}\npress (m) to see saved maps"
         elif len(app.savedMaps) >= 10:
             app.message = f"You cannot save more than 9 maps"
     
@@ -331,10 +331,6 @@ def keyPressed(app, event):
             app.screen = "gameScreen"
         elif event.key == 'p':
             app.paused = not app.paused
-        elif event.key == "x":
-            for spike in app.spikes:
-                if spike.pointingDown:
-                    print(spike.index, spike.slope, spike.cosalpha)
         if app.paused:
             if event.key == "Up":
                 app.player.y -= 1
@@ -419,19 +415,22 @@ def timerFired(app):
                 topStartY = lastTopSpike.rightY
                 bottomStartY = lastBottomSpike.rightY
                 indexOffset = size //  2
-                app.spikes += makeSpikes(app, 30, topStartY, bottomStartY, indexOffset)
-            app.speed += 1
+                app.spikes += makeSpikes(app, 100, topStartY, bottomStartY, indexOffset)
+            app.speed += (app.width // 200)
 
         if app.gameOver:
             if app.timer / 1000 > app.bestScore:
-                print("NEW HIGH SCORE!")
                 app.bestScore = app.timer / 1000
                 if app.currentMap != "random map":
                     app.savedMaps[app.currentMap][0] = app.bestScore
             if app.lastKeyPressed == "s":
                 pass
             else:
-                app.message = f"         Game Over!\n You lasted {app.timer / 1000} seconds\n   Press (s) to save the\n         current map\n     Press (r) to restart\nOr press (h) to return to\n      the home screen"
+                if app.bestScore == app.timer / 1000:
+                    app.message = "  NEW HIGH SCORE!!!"
+                else:
+                    app.message = "         Game Over!"
+                app.message += f"\n You lasted {app.timer / 1000} seconds\n   Press (s) to save the\n         current map\n     Press (r) to restart\n      with a new map\nOr press (h) to return to\n      the home screen"
         elif app.paused:
             app.message = "PAUSED"
         else:
@@ -526,7 +525,6 @@ def drawMapScreen(app, canvas):
                             font = "Arial 14")
         index += 1
         y += yInc
-
 
 def drawAboutScreen(app, canvas):
     canvas.create_rectangle(0, 0, app.width, app.height, fill = "black")
