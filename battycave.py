@@ -1,9 +1,9 @@
 #################################################
 # FINAL TPPPP!!!!
 #
-# Version 12:
-# What I've done: adding material for screens
-# Next step: add material for screens, finish map saver, circle view dots
+# Version 13:
+# What I've done: finish map saver and all screens
+# Next step: circle view dots, or extra powerups
 # 
 # Your name: Audi Lin
 # Your andrew id: audil
@@ -60,7 +60,7 @@ def appStarted(app):
     app.minSpikeHeight = app.height / 20
     app.maxSpikeHeight = app.height * 0.6
     app.spikeMargin = app.height / 13
-    app.spikes = makeSpikes(app, 30, 0, app.height)
+    app.spikes = makeSpikes(app, 100, 0, app.height)
     app.paused = False
     app.speed = app.width // 120 # 5
     app.timer = 0
@@ -102,7 +102,9 @@ def appStarted(app):
         "",
         "This game is a replication of a game on my phone",
         "by the same name, so I didn't come up with the concept,",
-        "but I added some my own fun features I hope you like."
+        "but I added some my own fun features I hope you like.",
+        "",
+        "to go back to the home screen, press (h)"
     ]
     
     app.homeScreenBat = Player(app, app.height / 5)
@@ -110,6 +112,8 @@ def appStarted(app):
     app.homeScreenBat.y = app.height * 0.35
     app.homeScreenBat.color = None
     app.homeScreenTimer = 0
+
+    app.lastKeyPressed = ""
 
 def resetScreen(app):
     app.player = Player(app, app.height / 20)
@@ -120,8 +124,8 @@ def resetScreen(app):
     app.minSpikeHeight = app.height / 20
     app.maxSpikeHeight = app.height * 0.6
     app.spikeMargin = app.height / 13
-    app.spikes = makeSpikes(app, 30, 0, app.height)
     app.paused = False
+    app.spikes = makeSpikes(app, 100, 0, app.height)
     app.currentMap = "random map"
     app.speed = app.width // 120 # 5
     app.timer = 0
@@ -129,10 +133,16 @@ def resetScreen(app):
     app.buttons = [Button(app, "INSTRUCTIONS(i)", "instructionScreen", 0),
                     Button(app, "SAVED MAPS(m)", "mapScreen", 1),
                     Button(app, "ABOUT(a)", "aboutScreen", 2)]
+    app.homeScreenBat = Player(app, app.height / 5)
+    app.homeScreenBat.x = app.width / 2
+    app.homeScreenBat.y = app.height * 0.35
+    app.homeScreenBat.color = None
+    app.homeScreenTimer = 0
 
 def sizeChanged(app):
     resetScreen(app)
     app.screen = "homeScreen"
+    app.savedMaps = {} # because otherwise the sizing will be off
 
 class Button(object):
     def __init__(self, app, displayText, screen, index):
@@ -307,10 +317,13 @@ def keyPressed(app, event):
         app.screen = "aboutScreen"
 
     elif event.key == "s":
-        if len(app.spikes) > 0 and app.gameOver:
+        if 0 <= len(app.savedMaps) < 10 and app.gameOver and app.currentMap == "random map":
             name = f"Map {len(app.savedMaps) + 1}"
-            app.savedMaps[name] = app.spikes
+            app.currentMap = name
+            app.savedMaps[name] = [app.timer / 1000, app.spikes] # keeps track of score too
             app.message = f"Map was saved as {name}"
+        elif len(app.savedMaps) >= 10:
+            app.message = f"You cannot save more than 9 maps"
     
     if app.screen == "gameScreen":
         if event.key == 'r':
@@ -338,7 +351,18 @@ def keyPressed(app, event):
             
             for spike in app.spikes:
                 spike.touching(app.player)
-    pass
+    elif app.screen == "mapScreen":
+        if event.key in "123456789":
+            name = "Map " + event.key
+            if name in app.savedMaps:
+                resetScreen(app)
+                app.currentMap = name
+                app.spikes = app.savedMaps[name][1]
+                app.screen = "gameScreen"
+            else:
+                print("Pick a valid map")
+            
+    app.lastKeyPressed = event.key
 
 def mousePressed(app, event):
     if app.screen == "homeScreen":
@@ -346,6 +370,10 @@ def mousePressed(app, event):
             button.checkClicked(event.x, event.y)
     elif app.screen == "gameScreen":
         app.player.yV = -1 * app.height // 70 # go up
+    # elif app.screen == "mapScreen":
+    #     for key in app.savedMaps:
+    #         if checkClick(event.x, event.y, key):
+    #             app.currentMap = key
 
 def timerFired(app):
     if app.screen == "homeScreen":
@@ -356,6 +384,10 @@ def timerFired(app):
     
     elif app.screen == "gameScreen":
         if not app.gameOver and not app.paused:
+            if app.currentMap == "random map":
+                app.bestScore = 0
+            else:
+                app.bestScore = app.savedMaps[app.currentMap][0]
             app.timer += app.timerDelay
             app.spikeTimer += app.timerDelay
             app.player.y += app.player.yV
@@ -377,20 +409,29 @@ def timerFired(app):
             app.gameOver = True
 
         x = (app.spikeWidth / app.speed) * app.timerDelay # amount of time it takes for 1 spike to pass
-        if app.spikeTimer > (15 * x):
-            app.spikeTimer -= (30 * x)
-            size = len(app.spikes)
-            lastTopSpike = app.spikes[size - 2]
-            lastBottomSpike = app.spikes[size - 1]
+        if app.spikeTimer > (x):
+            app.spikeTimer -= (100 * x)
+            if app.currentMap == "random map":
+                size = len(app.spikes)
+                lastTopSpike = app.spikes[size - 2]
+                lastBottomSpike = app.spikes[size - 1]
 
-            topStartY = lastTopSpike.rightY
-            bottomStartY = lastBottomSpike.rightY
-            indexOffset = size //  2
-            app.spikes += makeSpikes(app, 30, topStartY, bottomStartY, indexOffset)
+                topStartY = lastTopSpike.rightY
+                bottomStartY = lastBottomSpike.rightY
+                indexOffset = size //  2
+                app.spikes += makeSpikes(app, 30, topStartY, bottomStartY, indexOffset)
             app.speed += 1
 
         if app.gameOver:
-            app.message = f"         Game Over!\n You lasted {app.timer / 1000} seconds\n     Press (s) to save the current map\n     Press (r) to restart\nOr press (h) to return to\n      the home screen"
+            if app.timer / 1000 > app.bestScore:
+                print("NEW HIGH SCORE!")
+                app.bestScore = app.timer / 1000
+                if app.currentMap != "random map":
+                    app.savedMaps[app.currentMap][0] = app.bestScore
+            if app.lastKeyPressed == "s":
+                pass
+            else:
+                app.message = f"         Game Over!\n You lasted {app.timer / 1000} seconds\n   Press (s) to save the\n         current map\n     Press (r) to restart\nOr press (h) to return to\n      the home screen"
         elif app.paused:
             app.message = "PAUSED"
         else:
@@ -410,28 +451,32 @@ def drawPlayer(app, canvas):
     app.player.draw(canvas)
 
 def drawMessageAndTimer(app, canvas):
-    canvas.create_text(5, 5, text = f"{app.timer / 1000}", anchor = "nw",
+    canvas.create_text(5, 5, text = f"{app.timer / 1000} seconds", anchor = "nw",
+                        fill = "white")
+    canvas.create_text(5, 20, text = f"Best Score: {app.bestScore} seconds", anchor = "nw",
+                        fill = "white")
+    canvas.create_text(app.width / 2, 5, text = app.currentMap, anchor = "n",
                         fill = "white")
     if app.message == "":
         return False
-    textId = canvas.create_text(app.width / 2, app.height / 2,
+    textId = canvas.create_text(app.width  * 0.7, app.height / 2,
                         text = app.message,
-                        fill = "hot pink", anchor = "s", font = f"Arial {app.height // 30}")
+                        fill = "hot pink", font = f"Arial {app.height // 30}")
     x0, y0, x1, y1 = canvas.bbox(textId)
     canvas.create_rectangle(x0 - 5, y0 - 5, x1 + 5, y1 + 5, outline = "hot pink", fill = "black", width = 3)
-    canvas.create_text(app.width / 2, app.height / 2,
+    canvas.create_text(app.width * 0.7, app.height / 2,
                         text = app.message,
-                        fill = "white", anchor = "s", font = f"Arial {app.height // 30}")
+                        fill = "white", font = f"Arial {app.height // 30}")
 
 def drawHomeScreen(app, canvas):
     canvas.create_rectangle(0, 0, app.width, app.height, fill = "black")
     textId = canvas.create_text(app.width / 2, 20,
-                            text = "HOME SCREEN(h)", fill = "white",
+                            text = "BATTY CAVE HOME SCREEN(h)", fill = "white",
                             font = "Arial 24 bold", anchor = "n")
     x0, y0, x1, y1 = canvas.bbox(textId)
     canvas.create_rectangle(x0 - 5, y0 - 5, x1 + 5, y1 + 5, outline = "hot pink", fill = "black", width = 3)
     canvas.create_text(app.width / 2, 20,
-                            text = "HOME SCREEN(h)", fill = "white",
+                            text = "BATTY CAVE HOME SCREEN(h)", fill = "white",
                             font = "Arial 24 bold", anchor = "n")
     
     app.homeScreenBat.draw(canvas)
@@ -461,7 +506,27 @@ def drawInstructionScreen(app, canvas):
 def drawMapScreen(app, canvas):
     canvas.create_rectangle(0, 0, app.width, app.height, fill = "black")
     canvas.create_rectangle(10, 10, app.width - 10, app.height - 10, fill = "skyblue")
-    # work in progress
+    canvas.create_text(app.width / 2, app.height - 10, text = "to go back to the home screen, press (h)", fill = "black",
+                            font = "Arial 15", anchor = "s")
+    if len(app.savedMaps) == 0:
+        canvas.create_text(app.width / 2, app.height / 2,
+                            text = "You have no saved maps", fill = "black",
+                            font = "Arial 24 bold")
+        return False
+    
+    yInc = app.height / (len(app.savedMaps) + 3)
+    y = 2 * yInc
+    canvas.create_text(app.width / 2, yInc, text = "To play a map, press the corresponding number on your keyboard",
+                        fill = "black", font = "Arial 14")
+    canvas.create_text(app.width / 2, yInc + 20, text = "*Note: the map may be blank if you reach the end",
+                        fill = "black", font = "Arial 10")
+    index = 1
+    for name in app.savedMaps:
+        canvas.create_text(app.width / 2, y, text = f"{index}. {name}", fill = "black",
+                            font = "Arial 14")
+        index += 1
+        y += yInc
+
 
 def drawAboutScreen(app, canvas):
     canvas.create_rectangle(0, 0, app.width, app.height, fill = "black")
