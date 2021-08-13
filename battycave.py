@@ -1,9 +1,9 @@
 #################################################
 # FINAL TPPPP!!!!
 #
-# Version 11:
-# What I've done: polishing up messages on the screen, and adding more screens with buttons
-# Next step: add material for screens, circle view dots
+# Version 12:
+# What I've done: adding material for screens
+# Next step: add material for screens, finish map saver, circle view dots
 # 
 # Your name: Audi Lin
 # Your andrew id: audil
@@ -67,10 +67,43 @@ def appStarted(app):
     app.bestScore = 0
     app.spikeTimer = 0
     app.screen = "homeScreen"
+    app.currentMap = "random map"
     app.message = ""
     app.buttons = [Button(app, "INSTRUCTIONS(i)", "instructionScreen", 0),
-                    Button(app, "BEST SCORES(s)", "scoredScreen", 1),
+                    Button(app, "SAVED MAPS(m)", "mapScreen", 1),
                     Button(app, "ABOUT(a)", "aboutScreen", 2)]
+    app.instructions = [
+        "INSTRUCTIONS!!!",
+        "",
+        "to fly higher, the player can",
+        "press (SPACE) or click the screen",
+        "",
+        "If the player touches the cave spikes,",
+        "then the player will die :(",
+        "",
+        "Don't worry, you can always revive",
+        "and try again with a new map",
+        "",
+        "Make it as far as you can and keep on trying!",
+        "",
+        "to start playing, press (SPACE)!",
+        "to go back to the home screen, press (h)"
+    ]
+    app.savedMaps = {}
+    app.about = [
+        "Hi! I'm Audi Lin, the marvelous creator",
+        "and I'm so glad you're playing my game!",
+        "",
+        "This game was made the week of 8/9/2021",
+        "for my CMU 15-112 term project",
+        "",
+        "I spent countless hours working on it,",
+        "and I hope you enjoy playing it :)",
+        "",
+        "This game is a replication of a game on my phone",
+        "by the same name, so I didn't come up with the concept,",
+        "but I added some my own fun features I hope you like."
+    ]
     
     app.homeScreenBat = Player(app, app.height / 5)
     app.homeScreenBat.x = app.width / 2
@@ -89,11 +122,12 @@ def resetScreen(app):
     app.spikeMargin = app.height / 13
     app.spikes = makeSpikes(app, 30, 0, app.height)
     app.paused = False
+    app.currentMap = "random map"
     app.speed = app.width // 120 # 5
     app.timer = 0
     app.spikeTimer = 0
     app.buttons = [Button(app, "INSTRUCTIONS(i)", "instructionScreen", 0),
-                    Button(app, "BEST SCORES(s)", "scoreScreen", 1),
+                    Button(app, "SAVED MAPS(m)", "mapScreen", 1),
                     Button(app, "ABOUT(a)", "aboutScreen", 2)]
 
 def sizeChanged(app):
@@ -265,12 +299,18 @@ def keyPressed(app, event):
     elif event.key == "i":
         resetScreen(app)
         app.screen = "instructionScreen"
-    elif event.key == "s":
+    elif event.key == "m":
         resetScreen(app)
-        app.screen = "scoreScreen"
+        app.screen = "mapScreen"
     elif event.key == "a":
         resetScreen(app)
         app.screen = "aboutScreen"
+
+    elif event.key == "s":
+        if len(app.spikes) > 0 and app.gameOver:
+            name = f"Map {len(app.savedMaps) + 1}"
+            app.savedMaps[name] = app.spikes
+            app.message = f"Map was saved as {name}"
     
     if app.screen == "gameScreen":
         if event.key == 'r':
@@ -350,7 +390,7 @@ def timerFired(app):
             app.speed += 1
 
         if app.gameOver:
-            app.message = f"         Game Over!\n You lasted {app.timer / 1000} seconds\n     Press (r) to restart\nOr press (h) to return to\n      the home screen"
+            app.message = f"         Game Over!\n You lasted {app.timer / 1000} seconds\n     Press (s) to save the current map\n     Press (r) to restart\nOr press (h) to return to\n      the home screen"
         elif app.paused:
             app.message = "PAUSED"
         else:
@@ -409,13 +449,29 @@ def drawGameScreen(app, canvas):
     drawMessageAndTimer(app, canvas)
 
 def drawInstructionScreen(app, canvas):
-    canvas.create_rectangle(0, 0, app.width, app.height, fill = "lime green")
+    canvas.create_rectangle(0, 0, app.width, app.height, fill = "black")
+    canvas.create_rectangle(10, 10, app.width - 10, app.height - 10, fill = "lime green")
+    yInc = app.height / (len(app.instructions) + 3)
+    y = 2 * yInc
+    for line in app.instructions:
+        canvas.create_text(app.width / 2, y, text = line, fill = "black",
+                            font = "Arial 15")
+        y += yInc
 
-def drawScoreScreen(app, canvas):
-    canvas.create_rectangle(0, 0, app.width, app.height, fill = "skyblue")
+def drawMapScreen(app, canvas):
+    canvas.create_rectangle(0, 0, app.width, app.height, fill = "black")
+    canvas.create_rectangle(10, 10, app.width - 10, app.height - 10, fill = "skyblue")
+    # work in progress
 
 def drawAboutScreen(app, canvas):
-    canvas.create_rectangle(0, 0, app.width, app.height, fill = "hot pink")
+    canvas.create_rectangle(0, 0, app.width, app.height, fill = "black")
+    canvas.create_rectangle(10, 10, app.width - 10, app.height - 10, fill = "hot pink")
+    yInc = app.height / (len(app.about) + 3)
+    y = 2 * yInc
+    for line in app.about:
+        canvas.create_text(app.width / 2, y, text = line, fill = "black",
+                            font = "Arial 15")
+        y += yInc
 
 def redrawAll(app, canvas):
     if app.screen == "homeScreen":
@@ -424,8 +480,8 @@ def redrawAll(app, canvas):
         drawGameScreen(app, canvas)
     elif app.screen == "instructionScreen":
         drawInstructionScreen(app, canvas)
-    elif app.screen == "scoreScreen":
-        drawScoreScreen(app, canvas)
+    elif app.screen == "mapScreen":
+        drawMapScreen(app, canvas)
     elif app.screen == "aboutScreen":
         drawAboutScreen(app, canvas)
     else:
